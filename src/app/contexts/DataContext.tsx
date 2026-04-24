@@ -8,14 +8,14 @@ interface DataContextType {
   permits: Permit[];
   vehicles: Vehicle[];
   citations: Citation[];
-  addVehicle: (vehicle: Omit<Vehicle, 'id'>) => void;
-  addPermit: (permit: Omit<Permit, 'id'>) => void;
-  addCitation: (citation: Omit<Citation, 'id'>) => void;
-  updatePermitStatus: (permitId: string, status: Permit['status']) => void;
-  updatePermitPayment: (permitId: string, paymentStatus: Permit['paymentStatus']) => void;
-  updateCitationStatus: (citationId: string, status: Citation['status']) => void;
-  payCitation: (citationId: string) => void;
-  disputeCitation: (citationId: string, reason: string) => void;
+  addVehicle: (vehicle: Omit<Vehicle, 'id'>) => Promise<void>;
+  addPermit: (permit: Omit<Permit, 'id'>) => Promise<void>;
+  addCitation: (citation: Omit<Citation, 'id'>) => Promise<void>;
+  updatePermitStatus: (permitId: string, status: Permit['status']) => Promise<void>;
+  updatePermitPayment: (permitId: string, paymentStatus: Permit['paymentStatus']) => Promise<void>;
+  updateCitationStatus: (citationId: string, status: Citation['status']) => Promise<void>;
+  payCitation: (citationId: string) => Promise<void>;
+  disputeCitation: (citationId: string, reason: string) => Promise<void>;
   searchPlate: (plate: string) => Permit | undefined;
   recentSearches: string[];
   addRecentSearch: (plate: string) => void;
@@ -32,11 +32,13 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   // Fetch initial data from Supabase
   useEffect(() => {
-    // 1. Clear data and don't fetch if nobody is logged in
+    // 1. Clear data immediately to avoid stale data when switching users
+    setPermits([]);
+    setVehicles([]);
+    setCitations([]);
+    setRecentSearches([]);
+
     if (!user) {
-      setPermits([]);
-      setVehicles([]);
-      setCitations([]);
       return;
     }
 

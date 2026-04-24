@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useData } from '../contexts/DataContext';
 import { Navbar } from '../components/Navbar';
@@ -27,6 +27,11 @@ export function ResidentPortal() {
   const [showDisputeDialog, setShowDisputeDialog] = useState(false);
   const [disputeReason, setDisputeReason] = useState('');
 
+  const [isSubmittingVehicle, setIsSubmittingVehicle] = useState(false);
+  const [isSubmittingPermit, setIsSubmittingPermit] = useState(false);
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [isSubmittingDispute, setIsSubmittingDispute] = useState(false);
+
   // Vehicle form state
   const [vehicleForm, setVehicleForm] = useState({
     licensePlate: '',
@@ -39,6 +44,8 @@ export function ResidentPortal() {
   const [permitForm, setPermitForm] = useState({
     vehicleId: '',
     type: 'Residential' as 'Residential' | 'Guest' | 'Employee',
+    startDate: new Date().toISOString().split('T')[0],
+    endDate: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split('T')[0],
   });
 
   // Payment form state
@@ -49,6 +56,29 @@ export function ResidentPortal() {
     cvv: '',
     zipCode: ''
   });
+
+  // Check for session expiry and automatically log out
+  useEffect(() => {
+    const checkSession = () => {
+      const loginTimestamp = localStorage.getItem('login_timestamp');
+      if (loginTimestamp) {
+        const currentTime = new Date().getTime();
+        const timeElapsed = currentTime - parseInt(loginTimestamp, 10);
+        
+        const ONE_HOUR_IN_MS = 60 * 60 * 1000;
+        
+        if (timeElapsed > ONE_HOUR_IN_MS) {
+          console.warn("Session expired. Automatically logging out.");
+          localStorage.clear();
+          window.location.href = '/login';
+        }
+      }
+    };
+
+    checkSession();
+    const interval = setInterval(checkSession, 60 * 1000); // Check every 1 minute
+    return () => clearInterval(interval);
+  }, []);
 
   const userVehicles = (vehicles || []).filter(v => v.residentId === user?.id);
   const userPermits = (permits || []).filter(p => p.residentId === user?.id);
@@ -61,55 +91,97 @@ export function ResidentPortal() {
     }
   };
 
-  const handleAddVehicle = (e: React.FormEvent) => {
+  const handleAddVehicle = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!vehicleForm.licensePlate || !vehicleForm.make || !vehicleForm.model) {
       toast.error('Please fill in all fields');
       return;
     }
 
-    addVehicle({
-      ...vehicleForm,
-      residentId: user?.id || '',
-    });
+    if (isSubmittingVehicle) return;
+    setIsSubmittingVehicle(true);
 
-    toast.success('Vehicle enrolled successfully!');
-    setVehicleForm({
-      licensePlate: '',
-      make: '',
-      model: '',
-      year: new Date().getFullYear(),
-    });
+    try {
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Backend request timed out! Check if your server is returning a response.')), 8000)
+      );
+
+      await Promise.race([
+        addVehicle({
+          ...vehicleForm,
+          residentId: user?.id || '',
+        }),
+        timeoutPromise
+      ]);
+
+      toast.success('Vehicle enrolled successfully!');
+      setVehicleForm({
+        licensePlate: '',
+        make: '',
+        model: '',
+        year: new Date().getFullYear(),
+      });
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to enroll vehicle');
+    } finally {
+      setIsSubmittingVehicle(false);
+    }
   };
 
-  const handleApplyPermit = (e: React.FormEvent) => {
+  const handleApplyPermit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!permitForm.vehicleId) {
       toast.error('Please select a vehicle');
       return;
     }
 
-    const vehicle = vehicles.find(v => v.id === permitForm.vehicleId);
-    if (!vehicle) return;
+    if (isSubmittingPermit) return;
+    setIsSubmittingPermit(true);
 
-    const newPermit = {
-      vehicleId: permitForm.vehicleId,
-      type: permitForm.type,
-      status: 'Incomplete' as const,
-      startDate: new Date().toISOString().split('T')[0],
-      endDate: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split('T')[0],
-      residentId: user?.id || '',
-      residentName: user?.name || '',
-      licensePlate: vehicle.licensePlate,
-      submittedAt: new Date().toISOString(),
-      documentUrl: selectedFile ? selectedFile.name : undefined,
-      paymentStatus: 'Unpaid' as const,
-    };
+    try {
+      const vehicle = vehicles.find(v => v.id === permitForm.vehicleId);
+      if (!vehicle) return;
 
-    addPermit(newPermit);
-    toast.success('Permit application submitted!');
-    setPermitForm({ vehicleId: '', type: 'Residential' });
-    setSelectedFile(null);
+      const newPermit = {
+        vehicleId: permitForm.vehicleId,
+        type: permitForm.type,
+        status: 'Pending' as const,
+        startDate: permitForm.startDate,
+        endDate: permitForm.endDate,
+        residentId: user?.id || '',
+        residentName: user?.name || '',
+        licensePlate: vehicle.licensePlate,
+        submittedAt: new Date().toISOString(),
+        documentUrl: selectedFile ? selectedFile.name : undefined,
+        paymentStatus: 'Unpaid' as const,
+      };
+
+      const submitPermitLogic = async () => {
+        // Simulate network request delay for the mock environment
+        await new Promise(resolve => setTimeout(resolve, 600));
+        await addPermit(newPermit);
+      };
+
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Backend request timed out! Check if your server is returning a response.')), 8000)
+      );
+
+      await Promise.race([submitPermitLogic(), timeoutPromise]);
+
+      toast.success('Permit application submitted!');
+      setPermitForm({ 
+        vehicleId: '', 
+        type: 'Residential',
+        startDate: new Date().toISOString().split('T')[0],
+        endDate: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split('T')[0]
+      });
+      setSelectedFile(null);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to submit permit application');
+    } finally {
+      setIsSubmittingPermit(false);
+    }
   };
 
   const openPaymentDialog = (permitId: string) => {
@@ -117,7 +189,7 @@ export function ResidentPortal() {
     setShowPaymentDialog(true);
   };
 
-  const handlePaymentSubmit = (e: React.FormEvent) => {
+  const handlePaymentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     // Validate payment form
@@ -138,12 +210,15 @@ export function ResidentPortal() {
 
     if (!selectedPermitForPayment) return;
 
+    if (isProcessingPayment) return;
+    setIsProcessingPayment(true);
+
     // Simulate payment processing
     updatePermitPayment(selectedPermitForPayment, 'Processing');
-    setShowPaymentDialog(false);
     toast.loading('Processing payment...', { duration: 2000 });
 
     setTimeout(() => {
+      setShowPaymentDialog(false);
       updatePermitPayment(selectedPermitForPayment, 'Paid');
       updatePermitStatus(selectedPermitForPayment, 'Pending');
       toast.success('Payment successful!', {
@@ -159,6 +234,7 @@ export function ResidentPortal() {
         zipCode: ''
       });
       setSelectedPermitForPayment(null);
+      setIsProcessingPayment(false);
     }, 2000);
   };
 
@@ -236,7 +312,7 @@ export function ResidentPortal() {
     setShowDisputeDialog(true);
   };
 
-  const handleFinePayment = (e: React.FormEvent) => {
+  const handleFinePayment = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!paymentForm.cardNumber || !paymentForm.cardName || !paymentForm.expiryDate || !paymentForm.cvv || !paymentForm.zipCode) {
@@ -246,10 +322,13 @@ export function ResidentPortal() {
 
     if (!selectedCitation) return;
 
-    setShowFinePaymentDialog(false);
+    if (isProcessingPayment) return;
+    setIsProcessingPayment(true);
+
     toast.loading('Processing payment...', { duration: 2000 });
 
     setTimeout(() => {
+      setShowFinePaymentDialog(false);
       payCitation(selectedCitation);
       toast.success('Fine paid successfully!');
       setPaymentForm({
@@ -260,10 +339,11 @@ export function ResidentPortal() {
         zipCode: ''
       });
       setSelectedCitation(null);
+      setIsProcessingPayment(false);
     }, 2000);
   };
 
-  const handleDispute = (e: React.FormEvent) => {
+  const handleDispute = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!disputeReason.trim()) {
@@ -273,13 +353,20 @@ export function ResidentPortal() {
 
     if (!selectedCitation) return;
 
-    disputeCitation(selectedCitation, disputeReason);
-    setShowDisputeDialog(false);
-    toast.success('Dispute submitted successfully', {
-      description: 'Your claim will be reviewed by an administrator'
-    });
-    setDisputeReason('');
-    setSelectedCitation(null);
+    if (isSubmittingDispute) return;
+    setIsSubmittingDispute(true);
+
+    try {
+      await disputeCitation(selectedCitation, disputeReason);
+      setShowDisputeDialog(false);
+      toast.success('Dispute submitted successfully', {
+        description: 'Your claim will be reviewed by an administrator'
+      });
+      setDisputeReason('');
+      setSelectedCitation(null);
+    } finally {
+      setIsSubmittingDispute(false);
+    }
   };
 
   const getCitationStatusColor = (status: string) => {
@@ -399,7 +486,7 @@ export function ResidentPortal() {
                           <Badge variant="outline" className="font-medium">{permit.paymentStatus}</Badge>
                         </div>
 
-                        {permit.status === 'Incomplete' && permit.paymentStatus === 'Unpaid' && (
+                        {permit.status === 'Pending' && permit.paymentStatus === 'Unpaid' && (
                           <Button 
                             onClick={() => openPaymentDialog(permit.id)} 
                             className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 shadow-md"
@@ -601,9 +688,9 @@ export function ResidentPortal() {
                         />
                       </div>
                     </div>
-                    <Button type="submit" className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 h-11 shadow-md">
+            <Button type="submit" disabled={isSubmittingVehicle} className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 h-11 shadow-md">
                       <Car className="h-4 w-4 mr-2" />
-                      Enroll Vehicle
+              {isSubmittingVehicle ? 'Enrolling...' : 'Enroll Vehicle'}
                     </Button>
                   </form>
                 </CardContent>
@@ -702,8 +789,31 @@ export function ResidentPortal() {
                       </Select>
                     </div>
 
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label htmlFor="startDate" className="font-medium">Start Date *</Label>
+                        <Input
+                          id="startDate"
+                          type="date"
+                          value={permitForm.startDate}
+                          onChange={(e) => setPermitForm({ ...permitForm, startDate: e.target.value })}
+                          className="h-12"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="endDate" className="font-medium">End Date *</Label>
+                        <Input
+                          id="endDate"
+                          type="date"
+                          value={permitForm.endDate}
+                          onChange={(e) => setPermitForm({ ...permitForm, endDate: e.target.value })}
+                          className="h-12"
+                        />
+                      </div>
+                    </div>
+
                     <div className="space-y-2">
-                      <Label className="font-medium">Upload Residency Proof (PDF) *</Label>
+                      <Label className="font-medium">Upload Residency Proof (PDF) (Optional)</Label>
                       <div
                         className="border-2 border-dashed rounded-xl p-8 md:p-12 text-center cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition-all"
                         onClick={() => fileInputRef.current?.click()}
@@ -728,10 +838,10 @@ export function ResidentPortal() {
                     <Button 
                       type="submit" 
                       className="w-full h-12 text-base bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-lg" 
-                      disabled={!selectedFile || !permitForm.vehicleId}
+            disabled={!permitForm.vehicleId || isSubmittingPermit}
                     >
                       <FileText className="h-5 w-5 mr-2" />
-                      Submit Application
+            {isSubmittingPermit ? 'Submitting...' : 'Submit Application'}
                     </Button>
                   </form>
                 </CardContent>
@@ -805,10 +915,11 @@ export function ResidentPortal() {
             </div>
             <Button
               type="submit"
+              disabled={isProcessingPayment}
               className="w-full h-12 text-base bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 shadow-lg"
             >
               <CreditCard className="h-5 w-5 mr-2" />
-              Pay ${selectedCitation && (citations || []).find(c => c.id === selectedCitation)?.fine}
+              {isProcessingPayment ? 'Processing...' : `Pay $${selectedCitation && (citations || []).find(c => c.id === selectedCitation)?.fine}`}
             </Button>
           </form>
         </DialogContent>
@@ -842,10 +953,11 @@ export function ResidentPortal() {
             </div>
             <Button
               type="submit"
+              disabled={isSubmittingDispute}
               className="w-full h-12 text-base bg-gradient-to-r from-yellow-600 to-orange-600 hover:from-yellow-700 hover:to-orange-700 shadow-lg"
             >
               <FileText className="h-5 w-5 mr-2" />
-              Submit Dispute
+              {isSubmittingDispute ? 'Submitting...' : 'Submit Dispute'}
             </Button>
           </form>
         </DialogContent>
@@ -915,10 +1027,11 @@ export function ResidentPortal() {
             </div>
             <Button 
               type="submit" 
+              disabled={isProcessingPayment}
               className="w-full h-12 text-base bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-lg" 
             >
               <CreditCard className="h-5 w-5 mr-2" />
-              Pay Now - $75
+              {isProcessingPayment ? 'Processing...' : 'Pay Now - $75'}
             </Button>
           </form>
         </DialogContent>

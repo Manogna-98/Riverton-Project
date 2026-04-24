@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useData } from '../contexts/DataContext';
 import { Navbar } from '../components/Navbar';
 import { Button } from '../components/ui/button';
@@ -22,6 +22,29 @@ export function AdminDashboard() {
   const [sortBy, setSortBy] = useState<'date' | 'name' | 'plate'>('date');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+
+  // Check for session expiry and automatically log out
+  useEffect(() => {
+    const checkSession = () => {
+      const loginTimestamp = localStorage.getItem('login_timestamp');
+      if (loginTimestamp) {
+        const currentTime = new Date().getTime();
+        const timeElapsed = currentTime - parseInt(loginTimestamp, 10);
+        
+        const ONE_HOUR_IN_MS = 60 * 60 * 1000;
+        
+        if (timeElapsed > ONE_HOUR_IN_MS) {
+          console.warn("Session expired. Automatically logging out.");
+          localStorage.clear();
+          window.location.href = '/login';
+        }
+      }
+    };
+
+    checkSession();
+    const interval = setInterval(checkSession, 60 * 1000); // Check every 1 minute
+    return () => clearInterval(interval);
+  }, []);
 
   const handleApprove = (permitId: string) => {
     updatePermitStatus(permitId, 'Active');

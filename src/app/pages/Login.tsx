@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { useNavigate } from 'react-router';
+import { useNavigate, Navigate } from 'react-router';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
@@ -16,9 +16,16 @@ export function Login() {
   const [role, setRole] = useState<string>('Resident');
   const [error, setError] = useState('');
   const [showRecovery, setShowRecovery] = useState(false);
-  const { login, loading: authLoading } = useAuth();
+  const { login, loading: authLoading, user } = useAuth();
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const navigate = useNavigate();
+
+  // Automatically redirect if already logged in
+  if (user) {
+    if (user.role === 'Resident') return <Navigate to="/resident" replace />;
+    if (user.role === 'Admin') return <Navigate to="/admin" replace />;
+    if (user.role === 'Officer') return <Navigate to="/officer" replace />;
+  }
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,6 +41,8 @@ export function Login() {
     setIsLoggingIn(false);
 
     if (result.success) {
+      // Log the start time of the session
+      localStorage.setItem('login_timestamp', new Date().getTime().toString());
       // Navigate based on role
       if (role === 'Resident') {
         navigate('/resident');

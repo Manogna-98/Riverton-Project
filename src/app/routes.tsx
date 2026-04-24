@@ -1,4 +1,5 @@
-import { createBrowserRouter, Navigate } from 'react-router';
+import { useEffect } from 'react';
+import { createHashRouter, Navigate } from 'react-router';
 import { Login } from './pages/Login';
 import { ResidentPortal } from './pages/ResidentPortal';
 import { AdminDashboard } from './pages/AdminDashboard';
@@ -7,23 +8,26 @@ import { useAuth } from './contexts/AuthContext';
 
 // Protected Route Component
 function ProtectedRoute({ children, allowedRole }: { children: React.ReactNode; allowedRole?: string }) {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
+
+  useEffect(() => {
+    if (user && allowedRole && user.role !== allowedRole) {
+      logout();
+    }
+  }, [user, allowedRole, logout]);
 
   if (!user) {
     return <Navigate to="/" replace />;
   }
 
   if (allowedRole && user.role !== allowedRole) {
-    // Redirect to their appropriate dashboard
-    if (user.role === 'Resident') return <Navigate to="/resident" replace />;
-    if (user.role === 'Admin') return <Navigate to="/admin" replace />;
-    if (user.role === 'Officer') return <Navigate to="/officer" replace />;
+    return <Navigate to="/" replace />;
   }
 
   return <>{children}</>;
 }
 
-export const router = createBrowserRouter([
+export const router = createHashRouter([
   {
     path: '/',
     element: <Login />,

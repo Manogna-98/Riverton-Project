@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useData } from '../contexts/DataContext';
 import { Navbar } from '../components/Navbar';
 import { Button } from '../components/ui/button';
@@ -21,6 +21,7 @@ export function OfficerVerification() {
   const [searchResult, setSearchResult] = useState<any>(null);
   const [hasSearched, setHasSearched] = useState(false);
   const [showCitationDialog, setShowCitationDialog] = useState(false);
+  const [isSubmittingCitation, setIsSubmittingCitation] = useState(false);
 
   // Citation form state
   const [citationForm, setCitationForm] = useState({
@@ -29,6 +30,29 @@ export function OfficerVerification() {
     notes: '',
     fine: 50
   });
+
+  // Check for session expiry and automatically log out
+  useEffect(() => {
+    const checkSession = () => {
+      const loginTimestamp = localStorage.getItem('login_timestamp');
+      if (loginTimestamp) {
+        const currentTime = new Date().getTime();
+        const timeElapsed = currentTime - parseInt(loginTimestamp, 10);
+        
+        const ONE_HOUR_IN_MS = 60 * 60 * 1000;
+        
+        if (timeElapsed > ONE_HOUR_IN_MS) {
+          console.warn("Session expired. Automatically logging out.");
+          localStorage.clear();
+          window.location.href = '/login';
+        }
+      }
+    };
+
+    checkSession();
+    const interval = setInterval(checkSession, 60 * 1000); // Check every 1 minute
+    return () => clearInterval(interval);
+  }, []);
 
   const handleSearch = (plate: string) => {
     if (!plate.trim()) {
@@ -67,7 +91,7 @@ export function OfficerVerification() {
     setShowCitationDialog(true);
   };
 
-  const handleCitationSubmit = (e: React.FormEvent) => {
+  const handleCitationSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!citationForm.violationType || !citationForm.location) {
@@ -75,39 +99,58 @@ export function OfficerVerification() {
       return;
     }
 
-    const citationNumber = `CT-2026-${Math.floor(1000 + Math.random() * 9000)}`;
+    if (isSubmittingCitation) return;
+    setIsSubmittingCitation(true);
 
-    const newCitation = {
-      citationNumber,
-      licensePlate: plateInput,
-      residentId: '99',
-      residentName: 'Unknown Resident',
-      violationType: citationForm.violationType,
-      location: citationForm.location,
-      notes: citationForm.notes,
-      fine: citationForm.fine,
-      status: 'Unpaid' as const,
-      issuedBy: 'Mike Officer',
-      issuedAt: new Date().toISOString()
-    };
+    try {
+      const citationNumber = `CT-2026-${Math.floor(1000 + Math.random() * 9000)}`;
 
-    addCitation(newCitation);
+      const newCitation = {
+        citationNumber,
+        licensePlate: plateInput,
+        residentId: '99',
+        residentName: 'Unknown Resident',
+        violationType: citationForm.violationType,
+        location: citationForm.location,
+        notes: citationForm.notes,
+        fine: citationForm.fine,
+        status: 'Unpaid' as const,
+        issuedBy: 'Mike Officer',
+        issuedAt: new Date().toISOString()
+      };
 
-    setShowCitationDialog(false);
-    toast.success(`Citation #${citationNumber} issued successfully`, {
-      description: `License plate: ${plateInput} - Fine: $${citationForm.fine}`
-    });
+      const submitCitationLogic = async () => {
+        // Simulate network request delay for the mock environment
+        await new Promise(resolve => setTimeout(resolve, 600));
+        await addCitation(newCitation);
+      };
 
-    // Reset states
-    setPlateInput('');
-    setSearchResult(null);
-    setHasSearched(false);
-    setCitationForm({
-      violationType: '',
-      location: '',
-      notes: '',
-      fine: 50
-    });
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Backend request timed out! Check if your server is returning a response.')), 8000)
+      );
+
+      await Promise.race([submitCitationLogic(), timeoutPromise]);
+
+      setShowCitationDialog(false);
+      toast.success(`Citation #${citationNumber} issued successfully`, {
+        description: `License plate: ${plateInput} - Fine: $${citationForm.fine}`
+      });
+
+      // Reset states
+      setPlateInput('');
+      setSearchResult(null);
+      setHasSearched(false);
+      setCitationForm({
+        violationType: '',
+        location: '',
+        notes: '',
+        fine: 50
+      });
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to issue citation');
+    } finally {
+      setIsSubmittingCitation(false);
+    }
   };
 
   const violationTypes = [
@@ -601,9 +644,10 @@ export function OfficerVerification() {
               </Button>
               <Button
                 type="submit"
+                disabled={isSubmittingCitation}
                 className="bg-red-600 hover:bg-red-700 text-white"
               >
-                Issue Citation
+                {isSubmittingCitation ? 'Issuing...' : 'Issue Citation'}
               </Button>
             </div>
           </form>

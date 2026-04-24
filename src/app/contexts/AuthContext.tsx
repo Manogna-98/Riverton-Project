@@ -1,5 +1,5 @@
 // @refresh reset
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { supabase } from '../utils/supabase';
 
 export interface AuthUser {
@@ -11,7 +11,7 @@ export interface AuthUser {
 
 interface AuthContextType {
   user: AuthUser | null;
-  login: (email: string, password: string, role: string) => Promise<{ success: boolean; error?: string }>;
+  login: (email: string, password: string, role: string) => Promise<{ success: boolean; error?: string; role?: string }>;
   logout: () => Promise<void>;
   isAuthenticated: boolean;
   loading: boolean;
@@ -57,7 +57,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  const fetchAndSetUser = async (email: string): Promise<{ success: boolean; error?: string }> => {
+  const fetchAndSetUser = async (email: string): Promise<{ success: boolean; error?: string; role?: string }> => {
     try {
       const { data, error } = await supabase
         .from('profiles')
@@ -73,13 +73,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { success: false, error: "Auth succeeded, but no matching Profile was found in the database. Check your 'profiles' table!" };
       }
 
+      const userRole = data.role ? data.role.charAt(0).toUpperCase() + data.role.slice(1) : 'Resident';
+
       setUser({
         id: data.id.toString(),
         email,
-        role: data.role ? data.role.charAt(0).toUpperCase() + data.role.slice(1) : 'Resident',
+        role: userRole,
         name: data.full_name || 'User',
       });
-      return { success: true };
+      return { success: true, role: userRole };
     } catch (err) {
       console.error("Profile fetch error:", err);
       return { success: false, error: "An unexpected error occurred while fetching the profile." };
@@ -88,7 +90,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const login = async (email: string, password: string, role: string): Promise<{ success: boolean; error?: string }> => {
+  const login = async (email: string, password: string, role: string): Promise<{ success: boolean; error?: string; role?: string }> => {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     
     if (error || !data.session) {
@@ -102,13 +104,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await supabase.auth.signOut();
       return profileResult;
     }
+
+    if (profileResult.role !== role) {
+      await logout();
+      return { success: false, error: `Access denied. Your account does not have ${role} privileges.` };
+    }
+
     return { success: true };
   };
 
-  const logout = async () => {
-    await supabase.auth.signOut();
-    setUser(null);
-  };
+  const logout = useCallback(async () => {
+    try {
+      await supabase.auth.signOut();
+    } catch (err) {
+      console.error("Logout error:", err);
+    } finally {
+      localStorage.clear();
+      sessionStorage.clear();
+      setUser(null);
+    }
+  }, []);
 
   return (
     <AuthContext.Provider value={{ user, login, logout, isAuthenticated: !!user, loading }}>
