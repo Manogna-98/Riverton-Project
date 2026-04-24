@@ -122,6 +122,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       localStorage.clear();
       sessionStorage.clear();
       setUser(null);
+      if (window.location.pathname !== '/login') {
+        window.location.href = '/login';
+      }
     }
   }, []);
 

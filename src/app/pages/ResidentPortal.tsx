@@ -102,17 +102,10 @@ export function ResidentPortal() {
     setIsSubmittingVehicle(true);
 
     try {
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Backend request timed out! Check if your server is returning a response.')), 8000)
-      );
-
-      await Promise.race([
-        addVehicle({
-          ...vehicleForm,
-          residentId: user?.id || '',
-        }),
-        timeoutPromise
-      ]);
+      await addVehicle({
+        ...vehicleForm,
+        residentId: user?.id || '',
+      });
 
       toast.success('Vehicle enrolled successfully!');
       setVehicleForm({
@@ -156,17 +149,7 @@ export function ResidentPortal() {
         paymentStatus: 'Unpaid' as const,
       };
 
-      const submitPermitLogic = async () => {
-        // Simulate network request delay for the mock environment
-        await new Promise(resolve => setTimeout(resolve, 600));
-        await addPermit(newPermit);
-      };
-
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Backend request timed out! Check if your server is returning a response.')), 8000)
-      );
-
-      await Promise.race([submitPermitLogic(), timeoutPromise]);
+      await addPermit(newPermit);
 
       toast.success('Permit application submitted!');
       setPermitForm({ 

@@ -43,9 +43,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     }
 
     const fetchSupabaseData = async () => {
-      let permitsQuery = supabase.from('permits').select('*, profiles!resident_id(full_name), vehicles!vehicle_id(license_plate)');
+      let permitsQuery = supabase.from('permits').select('*, profiles(full_name), vehicles(license_plate)');
       let vehiclesQuery = supabase.from('vehicles').select('*');
-      let citationsQuery = supabase.from('citations').select('*, resident_profile:profiles!resident_id(full_name), claims(*)');
+      let citationsQuery = supabase.from('citations').select('*, resident_profile:profiles(full_name), claims(*)');
 
       // 2. If the user is a Resident, only fetch their specific records
       if (user.role === 'Resident') {
@@ -153,7 +153,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         residentId: data.resident_id?.toString() || ''
       } : v));
     }
-    if (error) setVehicles(prev => prev.filter(v => v.id !== newId));
+    if (error) {
+      console.error("Failed to insert vehicle to database:", error);
+      setVehicles(prev => prev.filter(v => v.id !== newId));
+      throw error;
+    }
   };
 
   const addPermit = async (permit: Omit<Permit, 'id'>) => {
@@ -171,14 +175,14 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       end_date: permit.endDate
     };
 
-    const { data, error } = await supabase.from('permits').insert([dbPermit]).select('*, profiles:resident_id(full_name), vehicles:vehicle_id(license_plate)').single();
+    const { data, error } = await supabase.from('permits').insert([dbPermit]).select('*, profiles(full_name), vehicles(license_plate)').single();
     if (data) {
       setPermits(prev => prev.map(p => p.id === newId ? {
         id: data.id.toString(),
         vehicleId: data.vehicle_id?.toString() || '',
         type: data.type,
         status: data.status,
-        paymentStatus: 'Paid',
+        paymentStatus: p.paymentStatus, // Retain local 'Unpaid' state so the user can actually pay
         documentUrl: undefined,
         startDate: data.start_date,
         endDate: data.end_date,
@@ -188,12 +192,17 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         licensePlate: data.vehicles?.license_plate || permit.licensePlate
       } : p));
     }
-    if (error) setPermits(prev => prev.filter(p => p.id !== newId));
+    if (error) {
+      console.error("Failed to insert permit to database:", error);
+      setPermits(prev => prev.filter(p => p.id !== newId));
+      throw error;
+    }
   };
 
   const updatePermitStatus = async (permitId: string, status: Permit['status']) => {
     setPermits(prev => prev.map(p => p.id === permitId ? { ...p, status } : p));
-    await supabase.from('permits').update({ status }).eq('id', permitId);
+    const { error } = await supabase.from('permits').update({ status }).eq('id', permitId);
+    if (error) console.error("Failed to update permit status:", error);
   };
 
   const updatePermitPayment = async (permitId: string, paymentStatus: Permit['paymentStatus']) => {
@@ -223,7 +232,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       is_paid: citation.status === 'Paid'
     };
 
-    const { data, error } = await supabase.from('citations').insert([dbCitation]).select('*, resident_profile:profiles!resident_id(full_name)').single();
+    const { data, error } = await supabase.from('citations').insert([dbCitation]).select('*, resident_profile:profiles(full_name)').single();
     if (data) {
       setCitations(prev => prev.map(c => c.id === newId ? {
         id: data.id.toString(),
@@ -242,17 +251,23 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         claim: undefined
       } : c));
     }
-    if (error) setCitations(prev => prev.filter(c => c.id !== newId));
+    if (error) {
+      console.error("Failed to insert citation to database:", error);
+      setCitations(prev => prev.filter(c => c.id !== newId));
+      throw error;
+    }
   };
 
   const updateCitationStatus = async (citationId: string, status: Citation['status']) => {
     setCitations(prev => prev.map(c => c.id === citationId ? { ...c, status } : c));
     
     const isPaid = status === 'Paid' || status === 'Refunded';
-    await supabase.from('citations').update({ is_paid: isPaid }).eq('id', citationId);
+    const { error: citError } = await supabase.from('citations').update({ is_paid: isPaid }).eq('id', citationId);
+    if (citError) console.error("Failed to update citation status:", citError);
     
     if (status === 'Refunded') {
-       await supabase.from('claims').update({ status: 'Approved' }).eq('citation_id', citationId);
+       const { error: clmError } = await supabase.from('claims').update({ status: 'Approved' }).eq('citation_id', citationId);
+       if (clmError) console.error("Failed to approve claim:", clmError);
     }
   };
 
@@ -261,7 +276,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     setCitations(prev => prev.map(c =>
       c.id === citationId ? { ...c, status: 'Paid' as const, paidAt } : c
     ));
-    await supabase.from('citations').update({ is_paid: true }).eq('id', citationId);
+    const { error } = await supabase.from('citations').update({ is_paid: true }).eq('id', citationId);
+    if (error) console.error("Failed to pay citation:", error);
   };
 
   const disputeCitation = async (citationId: string, reason: string) => {
@@ -272,13 +288,19 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     
     const citation = citations.find(c => c.id === citationId);
     if (citation) {
-      await supabase.from('claims').insert([{
+      const { error } = await supabase.from('claims').insert([{
         id: crypto.randomUUID ? crypto.randomUUID() : `clm-${Date.now()}`,
         citation_id: citationId,
         resident_id: citation.residentId || null,
         reason: reason,
         status: 'Pending'
       }]);
+      if (error) {
+        console.error("Failed to insert claim to database:", error);
+        setCitations(prev => prev.map(c => 
+          c.id === citationId ? { ...c, status: citation.status, claim: undefined } : c
+        ));
+      }
     }
   };
 

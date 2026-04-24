@@ -16,9 +16,10 @@ import { motion, AnimatePresence } from 'motion/react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 export function OfficerVerification() {
-  const { searchPlate, recentSearches, addRecentSearch, citations, addCitation } = useData();
+  const { vehicles, searchPlate, recentSearches, addRecentSearch, citations, addCitation } = useData();
   const [plateInput, setPlateInput] = useState('');
   const [searchResult, setSearchResult] = useState<any>(null);
+  const [vehicleSearchResult, setVehicleSearchResult] = useState<any>(null);
   const [hasSearched, setHasSearched] = useState(false);
   const [showCitationDialog, setShowCitationDialog] = useState(false);
   const [isSubmittingCitation, setIsSubmittingCitation] = useState(false);
@@ -60,12 +61,20 @@ export function OfficerVerification() {
       return;
     }
 
-    const result = searchPlate(plate.trim());
+    const searchPlateStr = plate.trim().toUpperCase();
+    const vehicleResult = (vehicles || []).find(v => v.licensePlate.toUpperCase() === searchPlateStr);
+    const result = searchPlate(searchPlateStr);
+
+    setVehicleSearchResult(vehicleResult || null);
     setSearchResult(result);
     setHasSearched(true);
-    addRecentSearch(plate.trim().toUpperCase());
+    addRecentSearch(searchPlateStr);
     
-    if (result) {
+    if (!vehicleResult) {
+      toast.error('No vehicle found', {
+        description: 'This license plate is not registered in the system.'
+      });
+    } else if (result) {
       toast.success('Valid permit found', {
         description: 'This vehicle is authorized to park'
       });
@@ -108,8 +117,8 @@ export function OfficerVerification() {
       const newCitation = {
         citationNumber,
         licensePlate: plateInput,
-        residentId: '99',
-        residentName: 'Unknown Resident',
+        residentId: searchResult?.residentId || vehicleSearchResult?.residentId || '',
+        residentName: searchResult?.residentName || 'Unknown Resident',
         violationType: citationForm.violationType,
         location: citationForm.location,
         notes: citationForm.notes,
@@ -119,17 +128,7 @@ export function OfficerVerification() {
         issuedAt: new Date().toISOString()
       };
 
-      const submitCitationLogic = async () => {
-        // Simulate network request delay for the mock environment
-        await new Promise(resolve => setTimeout(resolve, 600));
-        await addCitation(newCitation);
-      };
-
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Backend request timed out! Check if your server is returning a response.')), 8000)
-      );
-
-      await Promise.race([submitCitationLogic(), timeoutPromise]);
+      await addCitation(newCitation);
 
       setShowCitationDialog(false);
       toast.success(`Citation #${citationNumber} issued successfully`, {
@@ -139,6 +138,7 @@ export function OfficerVerification() {
       // Reset states
       setPlateInput('');
       setSearchResult(null);
+      setVehicleSearchResult(null);
       setHasSearched(false);
       setCitationForm({
         violationType: '',
@@ -265,10 +265,60 @@ export function OfficerVerification() {
               transition={{ type: "spring", duration: 0.5 }}
               className="mb-6"
             >
-              <Card className={`shadow-2xl border-4 ${searchResult ? 'border-green-500 bg-gradient-to-br from-green-50 to-emerald-50' : 'border-red-500 bg-gradient-to-br from-red-50 to-orange-50'}`}>
+              <Card className={`shadow-2xl border-4 ${!vehicleSearchResult ? 'border-gray-400 bg-gradient-to-br from-gray-50 to-slate-50' : searchResult ? 'border-green-500 bg-gradient-to-br from-green-50 to-emerald-50' : 'border-red-500 bg-gradient-to-br from-red-50 to-orange-50'}`}>
                 <CardContent className="py-10 md:py-16">
                   <div className="text-center">
-                    {searchResult ? (
+                    {!vehicleSearchResult ? (
+                      <>
+                        <motion.div
+                          initial={{ scale: 0 }}
+                          animate={{ scale: 1 }}
+                          transition={{ type: "spring", delay: 0.2 }}
+                          className="inline-flex items-center justify-center w-28 h-28 bg-gradient-to-br from-gray-500 to-slate-600 rounded-full mb-6 shadow-2xl"
+                        >
+                          <Search className="h-16 w-16 text-white" />
+                        </motion.div>
+                        <motion.h2 
+                          className="text-3xl md:text-4xl font-bold text-gray-900 mb-3"
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: 0.3 }}
+                        >
+                          No Vehicle Found
+                        </motion.h2>
+                        <motion.p 
+                          className="text-gray-700 text-lg mb-8"
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          transition={{ delay: 0.4 }}
+                        >
+                          This license plate is not registered in the system
+                        </motion.p>
+                        
+                        <motion.div 
+                          className="bg-white rounded-2xl p-6 md:p-8 max-w-lg mx-auto shadow-xl"
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: 0.5 }}
+                        >
+                          <div className="flex items-center justify-center gap-3 text-gray-600 mb-6">
+                            <AlertTriangle className="h-6 w-6" />
+                            <span className="text-lg">Unregistered vehicle:</span>
+                          </div>
+                          <div className="font-mono font-bold text-3xl text-gray-700 mb-6 bg-gray-50 rounded-xl py-4">
+                            {plateInput}
+                          </div>
+                          <Button 
+                            onClick={openCitationDialog}
+                            size="lg"
+                            className="w-full h-14 text-lg bg-gradient-to-r from-gray-600 to-slate-600 hover:from-gray-700 hover:to-slate-700 shadow-lg"
+                          >
+                            <AlertTriangle className="h-5 w-5 mr-2" />
+                            Issue Citation Anyway
+                          </Button>
+                        </motion.div>
+                      </>
+                    ) : searchResult ? (
                       <>
                         <motion.div
                           initial={{ scale: 0 }}
@@ -324,6 +374,16 @@ export function OfficerVerification() {
                           <div className="flex justify-between items-center pt-4 border-t">
                             <span className="text-gray-600">Resident</span>
                             <span className="font-semibold">{searchResult.residentName}</span>
+                          </div>
+                          <div className="mt-6 pt-6 border-t border-gray-100">
+                            <Button 
+                              onClick={openCitationDialog}
+                              variant="outline"
+                              className="w-full h-12 text-base text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
+                            >
+                              <AlertTriangle className="h-5 w-5 mr-2" />
+                              Issue Citation (Other Reason)
+                            </Button>
                           </div>
                         </motion.div>
                       </>
@@ -628,7 +688,7 @@ export function OfficerVerification() {
                   id="fine"
                   type="number"
                   value={citationForm.fine}
-                  onChange={(e) => setCitationForm(prev => ({ ...prev, fine: parseInt(e.target.value) }))}
+                  onChange={(e) => setCitationForm(prev => ({ ...prev, fine: parseInt(e.target.value) || 0 }))}
                   className="w-full"
                 />
               </div>
