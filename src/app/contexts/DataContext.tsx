@@ -1,0 +1,320 @@
+// @refresh reset
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { Permit, Vehicle, Citation } from '../utils/mockData';
+import { supabase } from '../utils/supabase';
+import { useAuth } from './AuthContext';
+
+interface DataContextType {
+  permits: Permit[];
+  vehicles: Vehicle[];
+  citations: Citation[];
+  addVehicle: (vehicle: Omit<Vehicle, 'id'>) => void;
+  addPermit: (permit: Omit<Permit, 'id'>) => void;
+  addCitation: (citation: Omit<Citation, 'id'>) => void;
+  updatePermitStatus: (permitId: string, status: Permit['status']) => void;
+  updatePermitPayment: (permitId: string, paymentStatus: Permit['paymentStatus']) => void;
+  updateCitationStatus: (citationId: string, status: Citation['status']) => void;
+  payCitation: (citationId: string) => void;
+  disputeCitation: (citationId: string, reason: string) => void;
+  searchPlate: (plate: string) => Permit | undefined;
+  recentSearches: string[];
+  addRecentSearch: (plate: string) => void;
+}
+
+const DataContext = createContext<DataContextType | undefined>(undefined);
+
+export function DataProvider({ children }: { children: React.ReactNode }) {
+  const [permits, setPermits] = useState<Permit[]>([]);
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [citations, setCitations] = useState<Citation[]>([]);
+  const [recentSearches, setRecentSearches] = useState<string[]>([]);
+  const { user } = useAuth();
+
+  // Fetch initial data from Supabase
+  useEffect(() => {
+    // 1. Clear data and don't fetch if nobody is logged in
+    if (!user) {
+      setPermits([]);
+      setVehicles([]);
+      setCitations([]);
+      return;
+    }
+
+    const fetchSupabaseData = async () => {
+      let permitsQuery = supabase.from('permits').select('*, profiles!resident_id(full_name), vehicles!vehicle_id(license_plate)');
+      let vehiclesQuery = supabase.from('vehicles').select('*');
+      let citationsQuery = supabase.from('citations').select('*, resident_profile:profiles!resident_id(full_name), claims(*)');
+
+      // 2. If the user is a Resident, only fetch their specific records
+      if (user.role === 'Resident') {
+        permitsQuery = permitsQuery.eq('resident_id', user.id);
+        vehiclesQuery = vehiclesQuery.eq('resident_id', user.id);
+        citationsQuery = citationsQuery.eq('resident_id', user.id);
+      }
+
+      const [permitsRes, vehiclesRes, citationsRes] = await Promise.all([
+        permitsQuery,
+        vehiclesQuery,
+        citationsQuery
+      ]);
+
+      // Log any potential database errors to the console
+      if (permitsRes.error) console.error('Permits fetch error:', permitsRes.error);
+      if (vehiclesRes.error) console.error('Vehicles fetch error:', vehiclesRes.error);
+      if (citationsRes.error) console.error('Citations fetch error:', citationsRes.error);
+
+      if (permitsRes.data) {
+        setPermits(permitsRes.data.map(p => ({
+          id: p.id.toString(),
+          vehicleId: p.vehicle_id?.toString() || '',
+          type: p.type,
+          status: p.status,
+          paymentStatus: 'Paid', // Removed from new schema
+          documentUrl: undefined, // Removed from new schema
+          startDate: p.start_date,
+          endDate: p.end_date,
+          submittedAt: p.start_date, // Mapped to start date
+          residentId: p.resident_id?.toString() || '',
+          residentName: p.profiles?.full_name || 'Unknown',
+          licensePlate: p.vehicles?.license_plate || 'Unknown'
+        })));
+      }
+      
+      if (vehiclesRes.data) {
+        setVehicles(vehiclesRes.data.map(v => ({
+          id: v.id.toString(),
+          licensePlate: v.license_plate,
+          make: v.make,
+          model: v.model,
+          year: new Date().getFullYear(), // Removed from new schema
+          residentId: v.resident_id?.toString() || ''
+        })));
+      }
+      
+      if (citationsRes.data) {
+        setCitations(citationsRes.data.map(c => {
+          const claim = c.claims && c.claims.length > 0 ? {
+            reason: c.claims[0].reason,
+            status: c.claims[0].status,
+            submittedAt: c.claims[0].submitted_at
+          } : undefined;
+
+          let status = c.is_paid ? 'Paid' : 'Unpaid';
+          if (claim) {
+            if (claim.status === 'Pending') status = 'Disputed';
+            if (claim.status === 'Approved') status = 'Refunded';
+          }
+
+          return {
+            id: c.id.toString(),
+            citationNumber: c.citation_number,
+            licensePlate: c.license_plate,
+            residentId: c.resident_id?.toString() || '',
+            residentName: c.resident_profile?.full_name || 'Unknown',
+            violationType: c.violation_type,
+            location: 'Unknown Location', // Removed from new schema
+            fine: parseFloat(c.fine_amount),
+            status: status as any,
+            notes: '', // Removed from new schema
+            issuedBy: 'System', // Removed from new schema
+            issuedAt: c.issued_at,
+            paidAt: c.is_paid ? c.issued_at : undefined,
+            claim
+          };
+        }));
+      }
+    };
+    fetchSupabaseData();
+  }, [user]); // 3. Re-run this effect whenever the logged-in user changes
+
+  const addVehicle = async (vehicle: Omit<Vehicle, 'id'>) => {
+    const newId = crypto.randomUUID ? crypto.randomUUID() : `veh-${Date.now()}`;
+    const tempVehicle = { ...vehicle, id: newId };
+    setVehicles(prev => [...prev, tempVehicle]);
+
+    const dbVehicle = {
+      id: newId,
+      resident_id: vehicle.residentId || null,
+      license_plate: vehicle.licensePlate,
+      make: vehicle.make,
+      model: vehicle.model
+    };
+
+    const { data, error } = await supabase.from('vehicles').insert([dbVehicle]).select().single();
+    if (data) {
+      setVehicles(prev => prev.map(v => v.id === newId ? {
+        id: data.id.toString(),
+        licensePlate: data.license_plate,
+        make: data.make,
+        model: data.model,
+        year: new Date().getFullYear(),
+        residentId: data.resident_id?.toString() || ''
+      } : v));
+    }
+    if (error) setVehicles(prev => prev.filter(v => v.id !== newId));
+  };
+
+  const addPermit = async (permit: Omit<Permit, 'id'>) => {
+    const newId = crypto.randomUUID ? crypto.randomUUID() : `prm-${Date.now()}`;
+    const tempPermit = { ...permit, id: newId };
+    setPermits(prev => [...prev, tempPermit]);
+
+    const dbPermit = {
+      id: newId,
+      resident_id: permit.residentId || null,
+      vehicle_id: permit.vehicleId || null,
+      type: permit.type,
+      status: permit.status,
+      start_date: permit.startDate,
+      end_date: permit.endDate
+    };
+
+    const { data, error } = await supabase.from('permits').insert([dbPermit]).select('*, profiles:resident_id(full_name), vehicles:vehicle_id(license_plate)').single();
+    if (data) {
+      setPermits(prev => prev.map(p => p.id === newId ? {
+        id: data.id.toString(),
+        vehicleId: data.vehicle_id?.toString() || '',
+        type: data.type,
+        status: data.status,
+        paymentStatus: 'Paid',
+        documentUrl: undefined,
+        startDate: data.start_date,
+        endDate: data.end_date,
+        submittedAt: data.start_date,
+        residentId: data.resident_id?.toString() || '',
+        residentName: data.profiles?.full_name || permit.residentName,
+        licensePlate: data.vehicles?.license_plate || permit.licensePlate
+      } : p));
+    }
+    if (error) setPermits(prev => prev.filter(p => p.id !== newId));
+  };
+
+  const updatePermitStatus = async (permitId: string, status: Permit['status']) => {
+    setPermits(prev => prev.map(p => p.id === permitId ? { ...p, status } : p));
+    await supabase.from('permits').update({ status }).eq('id', permitId);
+  };
+
+  const updatePermitPayment = async (permitId: string, paymentStatus: Permit['paymentStatus']) => {
+    setPermits(prev => prev.map(p => p.id === permitId ? { ...p, paymentStatus } : p));
+    // payment_status removed from schema, only updating local state
+  };
+
+  const searchPlate = (plate: string) => {
+    return permits.find(
+      p => p.licensePlate.toLowerCase() === plate.toLowerCase() && 
+      p.status === 'Active'
+    );
+  };
+
+  const addCitation = async (citation: Omit<Citation, 'id'>) => {
+    const newId = crypto.randomUUID ? crypto.randomUUID() : `cit-${Date.now()}`;
+    const tempCitation = { ...citation, id: newId };
+    setCitations(prev => [...prev, tempCitation]);
+
+    const dbCitation = {
+      id: newId,
+      citation_number: citation.citationNumber,
+      license_plate: citation.licensePlate,
+      resident_id: citation.residentId || null,
+      violation_type: citation.violationType,
+      fine_amount: citation.fine,
+      is_paid: citation.status === 'Paid'
+    };
+
+    const { data, error } = await supabase.from('citations').insert([dbCitation]).select('*, resident_profile:profiles!resident_id(full_name)').single();
+    if (data) {
+      setCitations(prev => prev.map(c => c.id === newId ? {
+        id: data.id.toString(),
+        citationNumber: data.citation_number,
+        licensePlate: data.license_plate,
+        residentId: data.resident_id?.toString() || '',
+        residentName: data.resident_profile?.full_name || citation.residentName,
+        violationType: data.violation_type,
+        location: citation.location, // Kept locally for frontend state
+        fine: parseFloat(data.fine_amount),
+        status: data.is_paid ? 'Paid' : 'Unpaid',
+        notes: citation.notes, // Kept locally for frontend state
+        issuedBy: 'System',
+        issuedAt: data.issued_at,
+        paidAt: data.is_paid ? data.issued_at : undefined,
+        claim: undefined
+      } : c));
+    }
+    if (error) setCitations(prev => prev.filter(c => c.id !== newId));
+  };
+
+  const updateCitationStatus = async (citationId: string, status: Citation['status']) => {
+    setCitations(prev => prev.map(c => c.id === citationId ? { ...c, status } : c));
+    
+    const isPaid = status === 'Paid' || status === 'Refunded';
+    await supabase.from('citations').update({ is_paid: isPaid }).eq('id', citationId);
+    
+    if (status === 'Refunded') {
+       await supabase.from('claims').update({ status: 'Approved' }).eq('citation_id', citationId);
+    }
+  };
+
+  const payCitation = async (citationId: string) => {
+    const paidAt = new Date().toISOString();
+    setCitations(prev => prev.map(c =>
+      c.id === citationId ? { ...c, status: 'Paid' as const, paidAt } : c
+    ));
+    await supabase.from('citations').update({ is_paid: true }).eq('id', citationId);
+  };
+
+  const disputeCitation = async (citationId: string, reason: string) => {
+    const claim = { reason, submittedAt: new Date().toISOString(), status: 'Pending' as const };
+    setCitations(prev => prev.map(c =>
+      c.id === citationId ? { ...c, status: 'Disputed' as const, claim } : c
+    ));
+    
+    const citation = citations.find(c => c.id === citationId);
+    if (citation) {
+      await supabase.from('claims').insert([{
+        id: crypto.randomUUID ? crypto.randomUUID() : `clm-${Date.now()}`,
+        citation_id: citationId,
+        resident_id: citation.residentId || null,
+        reason: reason,
+        status: 'Pending'
+      }]);
+    }
+  };
+
+  const addRecentSearch = (plate: string) => {
+    setRecentSearches(prev => {
+      const filtered = prev.filter(p => p !== plate);
+      return [plate, ...filtered].slice(0, 5);
+    });
+  };
+
+  return (
+    <DataContext.Provider
+      value={{
+        permits,
+        vehicles,
+        citations,
+        addVehicle,
+        addPermit,
+        addCitation,
+        updatePermitStatus,
+        updatePermitPayment,
+        updateCitationStatus,
+        payCitation,
+        disputeCitation,
+        searchPlate,
+        recentSearches,
+        addRecentSearch,
+      }}
+    >
+      {children}
+    </DataContext.Provider>
+  );
+}
+
+export function useData() {
+  const context = useContext(DataContext);
+  if (!context) {
+    throw new Error('useData must be used within DataProvider');
+  }
+  return context;
+}

@@ -1,0 +1,48 @@
+========================================================================
+                     CITYPARK PERMIT SYSTEM
+========================================================================
+
+WHAT IS THIS PROJECT ABOUT?
+---------------------------
+CityPark is a comprehensive, modern web application designed to digitize 
+and streamline the entire lifecycle of city parking permits and enforcement.
+It replaces manual, paper-based parking management with a secure, 
+cloud-connected platform. The system handles everything from vehicle 
+enrollment and document verification to fine payments and field citations.
+
+WHO CAN USE IT?
+---------------
+The platform is built around a Role-Based Access Control (RBAC) system 
+tailored for three specific types of users:
+
+1. Residents (Citizens):
+   Everyday users who need to park in city zones. They can use the self-
+   service portal to enroll their vehicles, apply for different types of 
+   permits (Residential, Guest, Employee), upload proof of residency, 
+   pay fees securely, and dispute any citations they receive.
+
+2. City Admins (Staff/Clerks):
+   City government employees who oversee the parking program. They have 
+   access to an administrative dashboard where they can review incoming 
+   permit applications, verify uploaded documents, approve or reject 
+   permits, and handle citation disputes. They also get a bird's-eye 
+   view of system KPIs and revenue.
+
+3. Enforcement Officers (Police/Traffic Wardens):
+   Field workers who patrol parking zones. Using a mobile-optimized 
+   tool, they can instantly look up a vehicle's license plate to verify 
+   its permit status in real-time. If a vehicle is parked illegally, 
+   they can seamlessly issue a citation and calculate the fine.
+
+HOW CAN IT BE HELPFUL?
+----------------------
+- Convenience for Citizens: No more waiting in lines at city hall. 
+  Residents can apply for permits and pay fines 24/7 from their phones.
+- Operational Efficiency: Automates the approval pipeline for admins, 
+  reducing paperwork and administrative overhead.
+- Real-Time Enforcement: Officers get instant, color-coded feedback on 
+  permit validity, ensuring accurate ticketing and fewer false citations.
+- Data-Driven Decisions: The system provides detailed analytics on 
+  citation hotspots and revenue collection, helping cities optimize.
+- Transparency: Clear tracking of applications, payments, and disputes 
+  builds trust between the city and its residents.
