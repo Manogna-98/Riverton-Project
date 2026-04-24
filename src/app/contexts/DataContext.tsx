@@ -43,9 +43,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     }
 
     const fetchSupabaseData = async () => {
-      let permitsQuery = supabase.from('permits').select('*, profiles(full_name), vehicles(license_plate)');
-      let vehiclesQuery = supabase.from('vehicles').select('*');
-      let citationsQuery = supabase.from('citations').select('*, resident_profile:profiles(full_name), claims(*)');
+      let permitsQuery = supabase.from('permits').select('*, profiles(full_name), vehicles(license_plate)').limit(5000);
+      let vehiclesQuery = supabase.from('vehicles').select('*').limit(5000);
+      let citationsQuery = supabase.from('citations').select('*, resident_profile:profiles(full_name), claims(*)').limit(5000);
 
       // 2. If the user is a Resident, only fetch their specific records
       if (user.role === 'Resident') {
