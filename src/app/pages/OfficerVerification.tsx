@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useAuth } from '../contexts/AuthContext';
 import { useData } from '../contexts/DataContext';
 import { Navbar } from '../components/Navbar';
 import { Button } from '../components/ui/button';
@@ -16,8 +17,10 @@ import { motion, AnimatePresence } from 'motion/react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 export function OfficerVerification() {
+  const { user } = useAuth();
   const { vehicles, searchPlate, recentSearches, addRecentSearch, citations, addCitation } = useData();
   const [plateInput, setPlateInput] = useState('');
+  const [searchedPlate, setSearchedPlate] = useState('');
   const [searchResult, setSearchResult] = useState<any>(null);
   const [vehicleSearchResult, setVehicleSearchResult] = useState<any>(null);
   const [hasSearched, setHasSearched] = useState(false);
@@ -68,6 +71,7 @@ export function OfficerVerification() {
     setVehicleSearchResult(vehicleResult || null);
     setSearchResult(result);
     setHasSearched(true);
+    setSearchedPlate(searchPlateStr);
     addRecentSearch(searchPlateStr);
     
     if (!vehicleResult) {
@@ -113,30 +117,33 @@ export function OfficerVerification() {
 
     try {
       const citationNumber = `CT-2026-${Math.floor(1000 + Math.random() * 9000)}`;
+      const residentId = searchResult?.residentId || vehicleSearchResult?.residentId || null;
+      const now = new Date().toISOString();
 
       const newCitation = {
         citationNumber,
-        licensePlate: plateInput,
-        residentId: searchResult?.residentId || vehicleSearchResult?.residentId || '',
-        residentName: searchResult?.residentName || 'Unknown Resident',
+        licensePlate: searchedPlate,
+        residentId: residentId || '',
+        residentName: searchResult?.residentName || vehicleSearchResult?.residentName || 'Unknown Resident',
         violationType: citationForm.violationType,
         location: citationForm.location,
         notes: citationForm.notes,
         fine: citationForm.fine,
         status: 'Unpaid' as const,
-        issuedBy: 'Mike Officer',
-        issuedAt: new Date().toISOString()
+        issuedBy: user?.name || 'Officer',
+        issuedAt: now
       };
 
       await addCitation(newCitation);
 
       setShowCitationDialog(false);
       toast.success(`Citation #${citationNumber} issued successfully`, {
-        description: `License plate: ${plateInput} - Fine: $${citationForm.fine}`
+        description: `License plate: ${searchedPlate} - Fine: $${citationForm.fine}`
       });
 
       // Reset states
       setPlateInput('');
+      setSearchedPlate('');
       setSearchResult(null);
       setVehicleSearchResult(null);
       setHasSearched(false);
@@ -306,7 +313,7 @@ export function OfficerVerification() {
                             <span className="text-lg">Unregistered vehicle:</span>
                           </div>
                           <div className="font-mono font-bold text-3xl text-gray-700 mb-6 bg-gray-50 rounded-xl py-4">
-                            {plateInput}
+                            {searchedPlate}
                           </div>
                           <Button 
                             onClick={openCitationDialog}
@@ -425,7 +432,7 @@ export function OfficerVerification() {
                             <span className="text-lg">No permit found for:</span>
                           </div>
                           <div className="font-mono font-bold text-3xl text-red-700 mb-6 bg-red-50 rounded-xl py-4">
-                            {plateInput}
+                            {searchedPlate}
                           </div>
                           <Button 
                             onClick={openCitationDialog}
@@ -461,7 +468,7 @@ export function OfficerVerification() {
               </CardHeader>
               <CardContent className="pt-4 pb-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {recentSearches.map((plate, index) => (
+              {(recentSearches || []).map((plate, index) => (
                     <motion.div
                       key={index}
                       initial={{ opacity: 0, x: -20 }}
@@ -558,13 +565,13 @@ export function OfficerVerification() {
                     <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
                       <CardContent className="p-4">
                         <p className="text-sm text-blue-700 mb-1">Total Citations</p>
-                        <p className="text-3xl font-bold text-blue-900">{citations.length}</p>
+                    <p className="text-3xl font-bold text-blue-900">{(citations || []).length}</p>
                       </CardContent>
                     </Card>
                     <Card className="bg-gradient-to-br from-red-50 to-red-100 border-red-200">
                       <CardContent className="p-4">
                         <p className="text-sm text-red-700 mb-1">Total Fines</p>
-                        <p className="text-3xl font-bold text-red-900">${citations.reduce((sum, c) => sum + c.fine, 0)}</p>
+                    <p className="text-3xl font-bold text-red-900">${(citations || []).reduce((sum, c) => sum + c.fine, 0)}</p>
                       </CardContent>
                     </Card>
                     <Card className="bg-gradient-to-br from-orange-50 to-orange-100 border-orange-200">
@@ -634,13 +641,13 @@ export function OfficerVerification() {
           <DialogHeader>
             <DialogTitle className="text-xl font-bold">Issue Citation</DialogTitle>
             <DialogDescription className="text-sm text-gray-500">
-              Fill in the details to issue a citation for the vehicle with license plate {plateInput}.
+              Fill in the details to issue a citation for the vehicle with license plate {searchedPlate}.
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleCitationSubmit}>
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="violationType">Violation Type</Label>
+                <Label htmlFor="violationType">Violation Type *</Label>
                 <Select
                   value={citationForm.violationType}
                   onValueChange={(value) => {
@@ -665,7 +672,7 @@ export function OfficerVerification() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="location">Location</Label>
+                <Label htmlFor="location">Location *</Label>
                 <Input
                   id="location"
                   value={citationForm.location}

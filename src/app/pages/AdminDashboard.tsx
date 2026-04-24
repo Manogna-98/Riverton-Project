@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
 import { CheckCircle, XCircle, FileText, Search, Users, Car, Clock, Filter, TrendingUp, Activity, DollarSign, AlertCircle, Receipt, ChevronLeft, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion } from 'motion/react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 
 export function AdminDashboard() {
   const { permits, updatePermitStatus, citations, updateCitationStatus } = useData();
@@ -68,7 +68,7 @@ export function AdminDashboard() {
     setCurrentPage(1);
   };
 
-  const handleSortChange = (value: any) => {
+  const handleSortChange = (value: 'date' | 'name' | 'plate') => {
     setSortBy(value);
     setCurrentPage(1);
   };
@@ -105,9 +105,9 @@ export function AdminDashboard() {
   };
 
   // Calculate KPIs
-  const activePermits = permits.filter(p => p.status === 'Active').length;
-  const pendingApplications = permits.filter(p => p.status === 'Pending' || p.status === 'Under Review').length;
-  const totalRevenue = permits.filter(p => p.paymentStatus === 'Paid').length * 75; // $75 per permit
+  const activePermits = (permits || []).filter(p => p.status === 'Active').length;
+  const pendingApplications = (permits || []).filter(p => p.status === 'Pending' || p.status === 'Under Review').length;
+  const totalRevenue = (permits || []).filter(p => p.paymentStatus === 'Paid').length * 75; // $75 per permit
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -124,12 +124,12 @@ export function AdminDashboard() {
   };
 
   // Calculate citation analytics
-  const totalFinesAllocated = citations.reduce((sum, c) => sum + c.fine, 0);
-  const totalFinesPaid = citations.filter(c => c.status === 'Paid').reduce((sum, c) => sum + c.fine, 0);
-  const totalClaims = citations.filter(c => c.claim).length;
-  const totalRefunds = citations.filter(c => c.status === 'Refunded').reduce((sum, c) => sum + c.fine, 0);
-  const unpaidFines = citations.filter(c => c.status === 'Unpaid').length;
-  const disputedCitations = citations.filter(c => c.status === 'Disputed').length;
+  const totalFinesAllocated = (citations || []).reduce((sum, c) => sum + c.fine, 0);
+  const totalFinesPaid = (citations || []).filter(c => c.status === 'Paid').reduce((sum, c) => sum + c.fine, 0);
+  const totalClaims = (citations || []).filter(c => c.claim).length;
+  const totalRefunds = (citations || []).filter(c => c.status === 'Refunded').reduce((sum, c) => sum + c.fine, 0);
+  const unpaidFines = (citations || []).filter(c => c.status === 'Unpaid').length;
+  const disputedCitations = (citations || []).filter(c => c.status === 'Disputed').length;
 
   const kpiData = [
     {
@@ -152,7 +152,7 @@ export function AdminDashboard() {
     },
     {
       title: 'Total Residents',
-      value: new Set(permits.map(p => p.residentId)).size,
+      value: new Set((permits || []).map(p => p.residentId)).size,
       icon: Users,
       color: 'from-blue-500 to-indigo-600',
       bgColor: 'bg-blue-50',
@@ -171,10 +171,10 @@ export function AdminDashboard() {
   ];
 
   const citationStatusData = [
-    { name: 'Paid', value: citations.filter(c => c.status === 'Paid').length, color: '#10b981' },
-    { name: 'Unpaid', value: citations.filter(c => c.status === 'Unpaid').length, color: '#ef4444' },
-    { name: 'Disputed', value: citations.filter(c => c.status === 'Disputed').length, color: '#f59e0b' },
-    { name: 'Refunded', value: citations.filter(c => c.status === 'Refunded').length, color: '#3b82f6' }
+    { name: 'Paid', value: (citations || []).filter(c => c.status === 'Paid').length, color: '#10b981' },
+    { name: 'Unpaid', value: (citations || []).filter(c => c.status === 'Unpaid').length, color: '#ef4444' },
+    { name: 'Disputed', value: (citations || []).filter(c => c.status === 'Disputed').length, color: '#f59e0b' },
+    { name: 'Refunded', value: (citations || []).filter(c => c.status === 'Refunded').length, color: '#3b82f6' }
   ];
 
   const handleApproveClaim = (citationId: string) => {
@@ -183,7 +183,7 @@ export function AdminDashboard() {
   };
 
   const handleRejectClaim = (citationId: string) => {
-    const citation = citations.find(c => c.id === citationId);
+    const citation = (citations || []).find(c => c.id === citationId);
     if (citation?.claim) {
       toast.info('Claim rejected - Citation remains active');
     }
@@ -493,7 +493,7 @@ export function AdminDashboard() {
                   </CardHeader>
                   <CardContent className="pt-4">
                     <div className="text-3xl font-bold mb-1">${totalFinesAllocated}</div>
-                    <p className="text-xs text-gray-600">{citations.length} total citations</p>
+                <p className="text-xs text-gray-600">{(citations || []).length} total citations</p>
                   </CardContent>
                 </Card>
               </motion.div>
@@ -547,7 +547,7 @@ export function AdminDashboard() {
                   </CardHeader>
                   <CardContent className="pt-4">
                     <div className="text-3xl font-bold mb-1">${totalRefunds}</div>
-                    <p className="text-xs text-gray-600">{citations.filter(c => c.status === 'Refunded').length} refunded</p>
+                <p className="text-xs text-gray-600">{(citations || []).filter(c => c.status === 'Refunded').length} refunded</p>
                   </CardContent>
                 </Card>
               </motion.div>
@@ -597,7 +597,7 @@ export function AdminDashboard() {
                     <div className="space-y-4">
                       <div className="flex justify-between items-center pb-3 border-b">
                         <span className="text-gray-600">Total Citations</span>
-                        <span className="text-2xl font-bold">{citations.length}</span>
+                    <span className="text-2xl font-bold">{(citations || []).length}</span>
                       </div>
                       <div className="flex justify-between items-center pb-3 border-b">
                         <span className="text-gray-600">Unpaid Citations</span>
@@ -612,7 +612,7 @@ export function AdminDashboard() {
                       <div className="flex justify-between items-center">
                         <span className="text-gray-600">Avg Fine Amount</span>
                         <span className="text-2xl font-bold">
-                          ${Math.round(totalFinesAllocated / (citations.length || 1))}
+                      ${Math.round(totalFinesAllocated / ((citations || []).length || 1))}
                         </span>
                       </div>
                     </div>
@@ -634,7 +634,7 @@ export function AdminDashboard() {
                   </CardHeader>
                   <CardContent className="pt-6">
                     <div className="space-y-4">
-                      {citations.filter(c => c.claim && c.claim.status === 'Pending').map((citation) => (
+                  {(citations || []).filter(c => c.claim && c.claim.status === 'Pending').map((citation) => (
                         <Card key={citation.id} className="border-l-4 border-l-yellow-500">
                           <CardContent className="p-4">
                             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -710,7 +710,7 @@ export function AdminDashboard() {
               <FileText className="h-10 w-10 text-white" />
             </div>
             <p className="text-sm text-gray-700 mb-2 font-medium">
-              Document: {permits.find(p => p.id === selectedPermit)?.documentUrl}
+          Document: {(permits || []).find(p => p.id === selectedPermit)?.documentUrl}
             </p>
             <p className="text-xs text-gray-500 bg-white rounded-lg p-3 inline-block">
               📄 In a production system, the PDF would be displayed here

@@ -11,7 +11,7 @@ import { Badge } from '../components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import { Textarea } from '../components/ui/textarea';
-import { Upload, Car, FileText, CreditCard, CheckCircle2, Clock, XCircle, Plus, Sparkles, Lock, AlertTriangle, DollarSign, Receipt } from 'lucide-react';
+import { Upload, Car, FileText, CreditCard, CheckCircle2, Clock, XCircle, Plus, Sparkles, AlertTriangle, DollarSign, Receipt } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion } from 'motion/react';
 
@@ -132,7 +132,7 @@ export function ResidentPortal() {
     setIsSubmittingPermit(true);
 
     try {
-      const vehicle = vehicles.find(v => v.id === permitForm.vehicleId);
+      const vehicle = (vehicles || []).find(v => v.id === permitForm.vehicleId);
       if (!vehicle) return;
 
       const newPermit = {
@@ -537,6 +537,7 @@ export function ResidentPortal() {
                               {citation.violationType === 'fire-lane' && 'Fire Lane Violation'}
                               {citation.violationType === 'handicap' && 'Handicap Violation'}
                               {citation.violationType === 'overtime' && 'Overtime Parking'}
+                              {citation.violationType === 'other' && 'Other Violation'}
                             </span>
                           </div>
                           <div className="flex justify-between text-sm">
@@ -745,7 +746,7 @@ export function ResidentPortal() {
 
                     <div className="space-y-2">
                       <Label htmlFor="permitType" className="font-medium">Permit Type *</Label>
-                      <Select value={permitForm.type} onValueChange={(value: any) => setPermitForm({ ...permitForm, type: value })}>
+                  <Select value={permitForm.type} onValueChange={(value: 'Residential' | 'Guest' | 'Employee') => setPermitForm({ ...permitForm, type: value })}>
                         <SelectTrigger id="permitType" className="h-12">
                           <SelectValue />
                         </SelectTrigger>
