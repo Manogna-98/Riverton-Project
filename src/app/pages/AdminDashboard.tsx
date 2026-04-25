@@ -33,11 +33,12 @@ export function AdminDashboard() {
         const currentTime = new Date().getTime();
         const timeElapsed = currentTime - parseInt(loginTimestamp, 10);
         
-        const ONE_HOUR_IN_MS = 60 * 60 * 1000;
+        const FIVE_MINUTES_IN_MS = 5 * 60 * 1000;
         
-        if (timeElapsed > ONE_HOUR_IN_MS) {
+        if (timeElapsed > FIVE_MINUTES_IN_MS) {
           console.warn("Session expired. Automatically logging out.");
           logout();
+          localStorage.removeItem('login_timestamp');
         }
       }
     };
