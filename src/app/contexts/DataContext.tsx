@@ -271,7 +271,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         fine: parseFloat(data.fine_amount),
         status: data.is_paid ? 'Paid' : 'Unpaid',
         notes: citation.notes, // Kept locally for frontend state
-        issuedBy: 'System',
+        issuedBy: citation.issuedBy || 'System', // Retain the actual officer's name in local state
         issuedAt: data.issued_at,
         paidAt: data.is_paid ? data.issued_at : undefined,
         claim: undefined
