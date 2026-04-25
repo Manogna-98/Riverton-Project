@@ -17,7 +17,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 export function OfficerVerification() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const { vehicles, searchPlate, recentSearches, addRecentSearch, citations, addCitation } = useData();
   const [plateInput, setPlateInput] = useState('');
   const [searchedPlate, setSearchedPlate] = useState('');
@@ -47,8 +47,7 @@ export function OfficerVerification() {
         
         if (timeElapsed > ONE_HOUR_IN_MS) {
           console.warn("Session expired. Automatically logging out.");
-          localStorage.clear();
-          window.location.href = '/login';
+          logout();
         }
       }
     };
@@ -56,7 +55,7 @@ export function OfficerVerification() {
     checkSession();
     const interval = setInterval(checkSession, 60 * 1000); // Check every 1 minute
     return () => clearInterval(interval);
-  }, []);
+  }, [logout]);
 
   const handleSearch = (plate: string) => {
     if (!plate.trim()) {

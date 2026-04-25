@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useAuth } from '../contexts/AuthContext';
 import { useData } from '../contexts/DataContext';
 import { Navbar } from '../components/Navbar';
 import { Button } from '../components/ui/button';
@@ -15,6 +16,7 @@ import { motion } from 'motion/react';
 import { Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 
 export function AdminDashboard() {
+  const { logout } = useAuth();
   const { permits, updatePermitStatus, citations, updateCitationStatus } = useData();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -35,8 +37,7 @@ export function AdminDashboard() {
         
         if (timeElapsed > ONE_HOUR_IN_MS) {
           console.warn("Session expired. Automatically logging out.");
-          localStorage.clear();
-          window.location.href = '/login';
+          logout();
         }
       }
     };
@@ -44,7 +45,7 @@ export function AdminDashboard() {
     checkSession();
     const interval = setInterval(checkSession, 60 * 1000); // Check every 1 minute
     return () => clearInterval(interval);
-  }, []);
+  }, [logout]);
 
   const handleApprove = (permitId: string) => {
     updatePermitStatus(permitId, 'Active');
@@ -175,7 +176,7 @@ export function AdminDashboard() {
     { name: 'Unpaid', value: (citations || []).filter(c => c.status === 'Unpaid').length, color: '#ef4444' },
     { name: 'Disputed', value: (citations || []).filter(c => c.status === 'Disputed').length, color: '#f59e0b' },
     { name: 'Refunded', value: (citations || []).filter(c => c.status === 'Refunded').length, color: '#3b82f6' }
-  ];
+  ].filter(item => item.value > 0); // Filter out zero-value statuses to prevent overlapping 0% labels
 
   const handleApproveClaim = (citationId: string) => {
     updateCitationStatus(citationId, 'Refunded');
@@ -570,7 +571,7 @@ export function AdminDashboard() {
                           cx="50%"
                           cy="50%"
                           labelLine={false}
-                          label={({ name, percent }) => `${name} ${percent ? (percent * 100).toFixed(0) : 0}%`}
+                          label={({ name, value, percent }) => `${name}: ${value} (${(percent * 100).toFixed(2)}%)`}
                           outerRadius={80}
                           fill="#8884d8"
                           dataKey="value"

@@ -16,7 +16,7 @@ import { toast } from 'sonner';
 import { motion } from 'motion/react';
 
 export function ResidentPortal() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const { permits, vehicles, citations, addVehicle, addPermit, updatePermitPayment, updatePermitStatus, payCitation, disputeCitation } = useData();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -69,8 +69,7 @@ export function ResidentPortal() {
         
         if (timeElapsed > ONE_HOUR_IN_MS) {
           console.warn("Session expired. Automatically logging out.");
-          localStorage.clear();
-          window.location.href = '/login';
+          logout();
         }
       }
     };
@@ -78,7 +77,7 @@ export function ResidentPortal() {
     checkSession();
     const interval = setInterval(checkSession, 60 * 1000); // Check every 1 minute
     return () => clearInterval(interval);
-  }, []);
+  }, [logout]);
 
   const userVehicles = (vehicles || []).filter(v => v.residentId === user?.id);
   const userPermits = (permits || []).filter(p => p.residentId === user?.id);

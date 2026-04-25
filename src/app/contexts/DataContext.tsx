@@ -43,21 +43,46 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     }
 
     const fetchSupabaseData = async () => {
-      let permitsQuery = supabase.from('permits').select('*, profiles(full_name), vehicles(license_plate)').limit(5000);
-      let vehiclesQuery = supabase.from('vehicles').select('*').limit(5000);
-      let citationsQuery = supabase.from('citations').select('*, resident_profile:profiles(full_name), claims(*)').limit(5000);
+      // Helper function to paginate past the Supabase 1000 row limit
+      const fetchAll = async (queryBuilder: () => any) => {
+        let allData: any[] = [];
+        let from = 0;
+        const step = 1000;
+        
+        while (true) {
+          const { data, error } = await queryBuilder().range(from, from + step - 1);
+          if (error) return { data: null, error };
+          
+          if (data) {
+            allData.push(...data);
+            if (data.length < step) break;
+            from += step;
+          } else {
+            break;
+          }
+        }
+        return { data: allData, error: null };
+      };
 
-      // 2. If the user is a Resident, only fetch their specific records
-      if (user.role === 'Resident') {
-        permitsQuery = permitsQuery.eq('resident_id', user.id);
-        vehiclesQuery = vehiclesQuery.eq('resident_id', user.id);
-        citationsQuery = citationsQuery.eq('resident_id', user.id);
-      }
+      const buildPermitsQuery = () => {
+        let q = supabase.from('permits').select('*, profiles(full_name), vehicles(license_plate)');
+        return user.role === 'Resident' ? q.eq('resident_id', user.id) : q;
+      };
+
+      const buildVehiclesQuery = () => {
+        let q = supabase.from('vehicles').select('*');
+        return user.role === 'Resident' ? q.eq('resident_id', user.id) : q;
+      };
+
+      const buildCitationsQuery = () => {
+        let q = supabase.from('citations').select('*, resident_profile:profiles(full_name), claims(*)');
+        return user.role === 'Resident' ? q.eq('resident_id', user.id) : q;
+      };
 
       const [permitsRes, vehiclesRes, citationsRes] = await Promise.all([
-        permitsQuery,
-        vehiclesQuery,
-        citationsQuery
+        fetchAll(buildPermitsQuery),
+        fetchAll(buildVehiclesQuery),
+        fetchAll(buildCitationsQuery)
       ]);
 
       // Log any potential database errors to the console

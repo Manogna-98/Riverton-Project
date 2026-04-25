@@ -11,7 +11,6 @@ export function Navbar() {
 
   const handleLogout = async () => {
     await logout();
-    navigate('/');
   };
 
   if (!user) return null;
