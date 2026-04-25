@@ -139,7 +139,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             residentId: c.resident_id?.toString() || '',
             residentName: c.resident_profile?.full_name || 'Unknown',
             violationType: c.violation_type,
-            location: 'Unknown Location', // Removed from new schema
+            location: c.location || 'Unknown Location',
             fine: parseFloat(c.fine_amount),
             status: status as any,
             notes: '', // Removed from new schema
@@ -253,6 +253,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       license_plate: citation.licensePlate,
       resident_id: citation.residentId || null,
       violation_type: citation.violationType,
+      location: citation.location,
       fine_amount: citation.fine,
       is_paid: citation.status === 'Paid'
     };
@@ -266,7 +267,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         residentId: data.resident_id?.toString() || '',
         residentName: data.resident_profile?.full_name || citation.residentName,
         violationType: data.violation_type,
-        location: citation.location, // Kept locally for frontend state
+        location: data.location || citation.location,
         fine: parseFloat(data.fine_amount),
         status: data.is_paid ? 'Paid' : 'Unpaid',
         notes: citation.notes, // Kept locally for frontend state
