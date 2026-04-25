@@ -240,7 +240,7 @@ export function OfficerVerification() {
                 <div className="flex-1 relative">
                   <Search className="absolute left-4 top-4 h-6 w-6 text-gray-400" />
                   <Input
-                  placeholder="e.g., CQ-1453, XL-9266, CC-5677"
+                  placeholder="e.g., XL-9266, AG-5779, ZO-8725, AB-1234"
                     value={plateInput}
                     onChange={(e) => setPlateInput(e.target.value.toUpperCase())}
                     onKeyDown={(e) => e.key === 'Enter' && handleSearch(plateInput)}
@@ -256,6 +256,20 @@ export function OfficerVerification() {
                   <Search className="h-5 w-5 mr-2" />
                   Search
                 </Button>
+              </div>
+              <div className="mt-4 text-center sm:text-left text-sm text-gray-500">
+                <span className="font-medium text-gray-600">Test plates:</span>{' '}
+                {['XL-9266', 'AG-5779', 'ZO-8725', 'AB-1234'].map((plate, i) => (
+                  <span key={plate}>
+                    <button 
+                      onClick={() => handleQuickSearch(plate)}
+                      className="font-mono hover:text-green-600 hover:underline transition-colors cursor-pointer"
+                    >
+                      {plate}
+                    </button>
+                    {i < 3 ? ', ' : ''}
+                  </span>
+                ))}
               </div>
             </CardContent>
           </Card>
