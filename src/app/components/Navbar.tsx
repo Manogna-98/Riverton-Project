@@ -31,9 +31,9 @@ export function Navbar() {
             </div>
             <div className="hidden sm:block">
               <h1 className="font-bold text-lg bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                CityPark
+                RUPP
               </h1>
-              <p className="text-xs text-gray-500">Permit System</p>
+              <p className="text-xs text-gray-500">Parking Management System</p>
             </div>
           </div>
 

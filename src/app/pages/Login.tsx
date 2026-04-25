@@ -151,10 +151,10 @@ export function Login() {
             </motion.div>
             <div>
               <CardTitle className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                CityPark
+                RUPP
               </CardTitle>
               <CardDescription className="text-base mt-2">
-                Smart Parking Permit Management
+                Riverton Unified Parking Portal
               </CardDescription>
             </div>
           </CardHeader>
