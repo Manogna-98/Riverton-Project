@@ -255,15 +255,15 @@ export function Login() {
               <div className="space-y-2 text-xs">
                 <div className="flex items-center gap-2 p-2 bg-white rounded-lg">
                   <span className="text-base">👤</span>
-                  <span className="text-gray-700">resident_abc132@email.com / password123</span>
+                  <span className="text-gray-700">johnsonjoshua@example.org / password123</span>
                 </div>
                 <div className="flex items-center gap-2 p-2 bg-white rounded-lg">
                   <span className="text-base">⚙️</span>
-                  <span className="text-gray-700">admin1@riverton.gov / admin123</span>
+                  <span className="text-gray-700">jacksonstephanie@example.net / admin123</span>
                 </div>
                 <div className="flex items-center gap-2 p-2 bg-white rounded-lg">
                   <span className="text-base">👮</span>
-                  <span className="text-gray-700">officer1@riverton.gov / officer123</span>
+                  <span className="text-gray-700">wford@example.com / officer123</span>
                 </div>
               </div>
             </div>
