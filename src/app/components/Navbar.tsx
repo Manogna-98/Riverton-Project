@@ -5,7 +5,7 @@ import { LogOut, Car, Menu } from 'lucide-react';
 import { useState } from 'react';
 
 export function Navbar() {
-  const { user, logout } = useAuth();
+  const { user, logout, loading } = useAuth();
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -15,6 +15,7 @@ export function Navbar() {
     navigate('/', { replace: true });
   };
 
+  if (loading) return null;
   if (!user) return null;
 
   const roleColors: Record<string, string> = {
