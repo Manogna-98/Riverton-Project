@@ -184,10 +184,8 @@ export function AdminDashboard() {
   };
 
   const handleRejectClaim = (citationId: string) => {
-    const citation = (citations || []).find(c => c.id === citationId);
-    if (citation?.claim) {
-      toast.info('Claim rejected - Citation remains active');
-    }
+    updateCitationStatus(citationId, 'Unpaid');
+    toast.info('Claim rejected - Citation remains active');
   };
 
   return (
@@ -211,7 +209,7 @@ export function AdminDashboard() {
         </motion.div>
 
         <Tabs defaultValue="permits" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2 h-auto p-1 bg-white shadow-md">
+          <TabsList className="grid w-full grid-cols-3 h-auto p-1 bg-white shadow-md">
             <TabsTrigger value="permits" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-600 data-[state=active]:to-pink-600 data-[state=active]:text-white py-3">
               <FileText className="h-4 w-4 mr-2" />
               Permits
@@ -219,6 +217,10 @@ export function AdminDashboard() {
             <TabsTrigger value="citations" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-600 data-[state=active]:to-pink-600 data-[state=active]:text-white py-3">
               <Receipt className="h-4 w-4 mr-2" />
               Citations
+            </TabsTrigger>
+            <TabsTrigger value="claims" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-600 data-[state=active]:to-pink-600 data-[state=active]:text-white py-3">
+              <AlertCircle className="h-4 w-4 mr-2" />
+              Claims
             </TabsTrigger>
           </TabsList>
 
@@ -621,21 +623,27 @@ export function AdminDashboard() {
                 </Card>
               </motion.div>
             </div>
+          </TabsContent>
 
-            {/* Disputed Citations Table */}
-            {disputedCitations > 0 && (
-              <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }}>
-                <Card className="shadow-lg border-0">
-                  <CardHeader className="bg-gradient-to-r from-yellow-50 to-orange-50 border-b">
-                    <CardTitle className="flex items-center gap-2">
-                      <AlertCircle className="h-5 w-5" />
-                      Disputed Citations Requiring Review
-                    </CardTitle>
-                    <CardDescription>Claims submitted by residents</CardDescription>
-                  </CardHeader>
-                  <CardContent className="pt-6">
-                    <div className="space-y-4">
-                  {(citations || []).filter(c => c.claim && c.claim.status === 'Pending').map((citation) => (
+          <TabsContent value="claims" className="space-y-6">
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+              <Card className="shadow-lg border-0">
+                <CardHeader className="bg-gradient-to-r from-yellow-50 to-orange-50 border-b">
+                  <CardTitle className="flex items-center gap-2">
+                    <AlertCircle className="h-5 w-5" />
+                    Disputed Citations Requiring Review
+                  </CardTitle>
+                  <CardDescription>Claims submitted by residents</CardDescription>
+                </CardHeader>
+                <CardContent className="pt-6">
+                  <div className="space-y-4">
+                    {disputedCitations === 0 ? (
+                      <div className="text-center py-12">
+                        <AlertCircle className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                        <p className="text-gray-500">No claims require review at this time.</p>
+                      </div>
+                    ) : (
+                      (citations || []).filter(c => c.claim && c.claim.status === 'Pending').map((citation) => (
                         <Card key={citation.id} className="border-l-4 border-l-yellow-500">
                           <CardContent className="p-4">
                             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -675,7 +683,7 @@ export function AdminDashboard() {
                                   size="sm"
                                   variant="outline"
                                   onClick={() => handleRejectClaim(citation.id)}
-                                  className="text-red-600 border-red-200"
+                                  className="text-red-600 border-red-200 hover:bg-red-50"
                                 >
                                   <XCircle className="h-4 w-4 mr-1" />
                                   Reject
@@ -684,12 +692,12 @@ export function AdminDashboard() {
                             </div>
                           </CardContent>
                         </Card>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            )}
+                      ))
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
           </TabsContent>
         </Tabs>
       </div>
