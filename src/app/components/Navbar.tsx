@@ -11,15 +11,20 @@ export function Navbar() {
 
   const handleLogout = async () => {
     await logout();
+    localStorage.removeItem('login_timestamp');
+    navigate('/', { replace: true });
   };
 
   if (!user) return null;
 
-  const roleColors = {
-    Resident: 'bg-blue-100 text-blue-700',
-    Admin: 'bg-purple-100 text-purple-700',
-    Officer: 'bg-green-100 text-green-700'
+  const roleColors: Record<string, string> = {
+    resident: 'bg-blue-100 text-blue-700',
+    admin: 'bg-purple-100 text-purple-700',
+    officer: 'bg-green-100 text-green-700'
   };
+
+  const safeRole = (user.role || '').toLowerCase();
+  const displayRole = safeRole.charAt(0).toUpperCase() + safeRole.slice(1);
 
   return (
     <nav className="border-b bg-white/80 backdrop-blur-md sticky top-0 z-50 shadow-sm">
@@ -42,8 +47,8 @@ export function Navbar() {
             <div className="flex items-center gap-3 bg-gray-50 rounded-lg px-4 py-2">
               <div className="text-right">
                 <p className="text-sm font-medium text-gray-900">{user.name}</p>
-                <p className={`text-xs font-medium px-2 py-0.5 rounded-full inline-block ${roleColors[user.role]}`}>
-                  {user.role}
+              <p className={`text-xs font-medium px-2 py-0.5 rounded-full inline-block ${roleColors[safeRole]}`}>
+                {displayRole}
                 </p>
               </div>
             </div>
@@ -70,8 +75,8 @@ export function Navbar() {
           <div className="md:hidden mt-4 pb-4 space-y-3 border-t pt-4">
             <div className="bg-gray-50 rounded-lg p-3">
               <p className="text-sm font-medium text-gray-900">{user.name}</p>
-              <p className={`text-xs font-medium px-2 py-1 rounded-full inline-block mt-1 ${roleColors[user.role]}`}>
-                {user.role}
+              <p className={`text-xs font-medium px-2 py-1 rounded-full inline-block mt-1 ${roleColors[safeRole]}`}>
+                {displayRole}
               </p>
             </div>
             <Button onClick={handleLogout} variant="outline" className="w-full">

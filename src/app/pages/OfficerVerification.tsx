@@ -240,7 +240,7 @@ export function OfficerVerification() {
                 <div className="flex-1 relative">
                   <Search className="absolute left-4 top-4 h-6 w-6 text-gray-400" />
                   <Input
-                    placeholder="Enter plate number..."
+                  placeholder="e.g., CQ-1453, XL-9266, CC-5677"
                     value={plateInput}
                     onChange={(e) => setPlateInput(e.target.value.toUpperCase())}
                     onKeyDown={(e) => e.key === 'Enter' && handleSearch(plateInput)}

@@ -22,9 +22,10 @@ export function Login() {
 
   // Automatically redirect if already logged in
   if (user) {
-    if (user.role === 'Resident') return <Navigate to="/resident" replace />;
-    if (user.role === 'Admin') return <Navigate to="/admin" replace />;
-    if (user.role === 'Officer') return <Navigate to="/officer" replace />;
+    const currentRole = user.role?.toLowerCase();
+    if (currentRole === 'resident') return <Navigate to="/resident" replace />;
+    if (currentRole === 'admin') return <Navigate to="/admin" replace />;
+    if (currentRole === 'officer') return <Navigate to="/officer" replace />;
   }
 
   const handleLogin = async (e: React.FormEvent) => {

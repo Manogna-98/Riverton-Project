@@ -8,19 +8,27 @@ import { useAuth } from './contexts/AuthContext';
 
 // Protected Route Component
 function ProtectedRoute({ children, allowedRole }: { children: React.ReactNode; allowedRole?: string }) {
-  const { user, logout } = useAuth();
+  const { user, logout, loading } = useAuth();
 
   useEffect(() => {
-    if (user && allowedRole && user.role !== allowedRole) {
+    if (!loading && user && allowedRole && user.role?.toLowerCase() !== allowedRole.toLowerCase()) {
       logout();
     }
-  }, [user, allowedRole, logout]);
+  }, [user, allowedRole, logout, loading]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
 
   if (!user) {
     return <Navigate to="/" replace />;
   }
 
-  if (allowedRole && user.role !== allowedRole) {
+  if (allowedRole && user.role?.toLowerCase() !== allowedRole.toLowerCase()) {
     return <Navigate to="/" replace />;
   }
 
